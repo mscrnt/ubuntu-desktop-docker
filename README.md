@@ -21,6 +21,7 @@ This Docker container provides a ready-to-use development environment based on U
 
 - Docker installed on your machine.
 - NVIDIA Container Toolkit installed on your machine.
+- cudnn-linux-x86_64-8.5.0.96_cuda11-archive.tar.xz placed next to Dockerfile.
 
 ## Getting Started
 
