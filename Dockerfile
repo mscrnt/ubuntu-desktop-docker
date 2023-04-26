@@ -80,6 +80,7 @@ RUN apt-get install -y \
         git \
         curl \
         nano \
+        tmux \
         ffmpeg \
         htop \
         vlc \
