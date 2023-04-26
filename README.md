@@ -2,7 +2,7 @@
 
 This Docker container provides a ready-to-use development environment based on Ubuntu 22.04 with the following tools pre-installed:
 
-- NVIDIA Driver 525
+- NVIDIA Driver 530
 - OBS Studio
 - Firefox
 - Visual Studio Code
@@ -20,6 +20,7 @@ This Docker container provides a ready-to-use development environment based on U
 ## Prerequisites
 
 - Docker installed on your machine.
+- NVIDIA Container Toolkit installed on your machine.
 
 ## Getting Started
 
