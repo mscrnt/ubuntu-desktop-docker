@@ -91,12 +91,11 @@ RUN apt-get install -y \
 
 # Install CUDA, cuDNN, and other required dependencies
 RUN apt-get install -y --no-install-recommends \
-        cuda-libraries-11-4 \
+        cuda-libraries-11-7 \
         libcudnn8 \
         libcudnn8-dev \
         libnccl2 \
-        libnccl-dev \
-        libnvrtc10 && \
+        libnccl-dev && \
     apt-get clean
 
 # Configure sshd
