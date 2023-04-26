@@ -79,6 +79,7 @@ RUN apt-get install -y \
         sudo \
         git \
         curl \
+        nano \
         ffmpeg \
         htop \
         vlc \
