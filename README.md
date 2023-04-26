@@ -45,7 +45,7 @@ docker run -it -p 5901:5901 -p 3389:3389 -p 22:22 -e USER=\<USERNAME> -e PASSWOR
 
 4. Use Docker Compose file:
 
-Create a `docker-compose.yml` file with the following content:
+Create a `docker-compose.yaml` file with the following content:
 
 ```yaml
 version: "3.8"
@@ -54,12 +54,6 @@ services:
     container_name: ubuntu-desktop-container
     image: mscrnt/ubuntu-desktop:latest
     environment:
-      - TZ=
-      - HOST_OS=
-      - HOST_HOSTNAME=
-      - HOST_CONTAINERNAME=ubuntu-desktop-container
-      - NVIDIA_VISIBLE_DEVICES=
-      - NVIDIA_DRIVER_CAPABILITIES=
       - USER=
       - PASSWORD=
       - VNCPASSWORD=
@@ -76,12 +70,7 @@ services:
               count: all
 ```
 
-Fill in the blanks in the docker-compose.yml file:
-- TZ: Your time zone (e.g., America/Los_Angeles).
-- HOST_OS: Your host operating system .
-- HOST_HOSTNAME: Your host machine's hostname 
-- NVIDIA_VISIBLE_DEVICES: The GPU device UUID you want to use (e.g., GPU-c992f41b-0660-76aa-796a-5065d2a1fbca).
-- NVIDIA_DRIVER_CAPABILITIES: NVIDIA driver capabilities (e.g., all).
+Fill in the blanks in the docker-compose.yaml file:
 - USER: The username for the container user 
 - PASSWORD: The password for the container user .
 - VNCPASSWORD: The VNC password for the container user 
