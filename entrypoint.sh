@@ -59,6 +59,12 @@ service ssh start
 echo "Starting VNC server"
 su - ${USER} -c "dbus-launch vncserver :1 -geometry 1920x1080 -localhost no"
 
+# Remove stale xrdp-sesman pid file
+if [ -f /var/run/xrdp/xrdp-sesman.pid ]; then
+    echo "Removing stale xrdp-sesman pid file"
+    rm /var/run/xrdp/xrdp-sesman.pid
+fi
+
 echo "Starting xrdp server"
 service xrdp start
 
