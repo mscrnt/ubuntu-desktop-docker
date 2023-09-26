@@ -35,7 +35,7 @@ docker pull mscrnt/ubuntu-desktop:headless
 Replace `<USERNAME>`, `<PASSWORD>`, `<VNCPASSWORD>`, `<ENABLE_X2GO>`, `<ENABLE_VNC>`, and `<ENABLE_XRDP>` with the desired values.
 
 ```bash
-docker run -it -p 5901:5901 -p 3389:3389 -p 22:22 -e USER=<USERNAME> -e PASSWORD=<PASSWORD> -e VNCPASSWORD=<VNCPASSWORD> -e ENABLE_X2GO=<ENABLE_X2GO> -e ENABLE_VNC=<ENABLE_VNC> -e ENABLE_XRDP=<ENABLE_XRDP> your_image_name:latest
+docker run --privileged -it -p 5901:5901 -p 3389:3389 -p 22:22 -e USER=<USERNAME> -e PASSWORD=<PASSWORD> -e VNCPASSWORD=<VNCPASSWORD> -e ENABLE_X2GO=<ENABLE_X2GO> -e ENABLE_VNC=<ENABLE_VNC> -e ENABLE_XRDP=<ENABLE_XRDP> your_image_name:latest
 ```
 
 3. **Access the container:**
