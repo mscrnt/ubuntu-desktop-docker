@@ -1,118 +1,56 @@
+# Use Ubuntu 22.04 as the base image
 FROM ubuntu:22.04
-
 ARG DEBIAN_FRONTEND=noninteractive
+
+# Install systemd and set it as the init system
+ENV container docker
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
 
 # Update package index and install required packages
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    wget \
-    gnupg \
-    software-properties-common
+    apt-get install -y \
+        systemd systemd-sysv ca-certificates wget gnupg software-properties-common && \
+    rm -rf /var/lib/apt/lists/*  # Cleanup to reduce image size
 
-# Add required repositories
-RUN add-apt-repository ppa:graphics-drivers/ppa && \
-    add-apt-repository ppa:obsproject/obs-studio && \
-    add-apt-repository ppa:mozillateam/ppa
+# Add required repositories and keys
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BC7345F522079769F5BBE987EFC71127F425E228 A7D8D681B1C07FE41499323D7CDE3A860A53F9FD && \
+    wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add - && \
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    echo "deb [arch=amd64] https://ppa.launchpadcontent.net/obsproject/obs-studio/ubuntu jammy main" >> /etc/apt/sources.list && \
+    echo "deb [arch=amd64] https://ppa.launchpadcontent.net/x2go/stable/ubuntu jammy main" >> /etc/apt/sources.list && \
+    echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list && \
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
 
-# Install CUDA, cuDNN, NVIDIA driver, and other dependencies
-RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin && \
-    mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600 && \
-    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub && \
-    add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/ /" && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-    g++ \
-    freeglut3-dev \
-    build-essential \
-    libx11-dev \
-    libxmu-dev \
-    libxi-dev \
-    libglu1-mesa \
-    libglu1-mesa-dev \
-    ca-certificates \
-    libnvidia-common-530 \
-    libnvidia-gl-530 \
-    nvidia-driver-530 \
-    cuda-11-7=11.7.0-1
+# Update package index again and install all remaining packages
+RUN apt-get update && \
+    apt-get install -y \
+        obs-studio code google-chrome-stable python3.10 python3.10-venv python3.10-dev openssh-server \
+        tigervnc-standalone-server tigervnc-xorg-extension tigervnc-viewer xorg xfce4 dbus-x11 \
+        xrdp x2goserver x2goserver-xsession sudo git curl nano tmux ffmpeg htop vlc \
+        x11-xserver-utils xfce4-terminal dbus && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*  # Cleanup to reduce image size
 
-# Copy cuDNN files to the Docker image
-COPY cudnn-linux-x86_64-8.5.0.96_cuda11-archive.tar.xz /tmp/cudnn-linux-x86_64-8.5.0.96_cuda11-archive.tar.xz
-
-# Install cuDNN v11.7
-RUN tar -xvf /tmp/cudnn-linux-x86_64-8.5.0.96_cuda11-archive.tar.xz -C /tmp && \
-    cp -P /tmp/cudnn-linux-x86_64-8.5.0.96_cuda11-archive/include/cudnn.h /usr/local/cuda-11.7/include && \
-    cp -P /tmp/cudnn-linux-x86_64-8.5.0.96_cuda11-archive/lib/libcudnn* /usr/local/cuda-11.7/lib64/ && \
-    chmod a+r /usr/local/cuda-11.7/lib64/libcudnn* && \
-    rm -rf /tmp/cudnn-linux-x86_64-8.5.0.96_cuda11-archive.tar.xz /tmp/cudnn-linux-x86_64-8.5.0.96_cuda11-archive
-
-# Set up environment variables for CUDA
-ENV PATH=/usr/local/cuda-11.7/bin:$PATH
-ENV LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64:$LD_LIBRARY_PATH
-
-# Add Microsoft repository for Visual Studio Code
-RUN wget -q https://packages.microsoft.com/keys/microsoft.asc -O- | apt-key add - && \
-    echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list
-
-# Update package index
-RUN apt-get update
-
-# Set package priority and unattended upgrades for Firefox
-RUN printf "Package: *\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n" | tee /etc/apt/preferences.d/mozilla-firefox && \
-    echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:${distro_codename}";' | tee /etc/apt/apt.conf.d/51unattended-upgrades-firefox
-
-# Install required packages
-RUN apt-get install -y \
-        obs-studio \
-        code \
-        firefox \
-        python3.10 \
-        python3.10-venv \
-        python3.10-dev \
-        openssh-server \
-        tigervnc-standalone-server \
-        tigervnc-xorg-extension \
-        tigervnc-viewer \
-        xorg \
-        xfce4 \
-        dbus-x11 \
-        xrdp \
-        sudo \
-        git \
-        curl \
-        nano \
-        tmux \
-        ffmpeg \
-        htop \
-        vlc \
-        x11-xserver-utils \
-        xfce4-terminal \
-        dbus && \
-    apt-get clean
-
-# Install CUDA, cuDNN, and other required dependencies
-RUN apt-get install -y --no-install-recommends \
-        cuda-libraries-11-7 \
-        libcudnn8 \
-        libcudnn8-dev \
-        libnccl2 \
-        libnccl-dev && \
-    apt-get clean
-
-# Configure sshd
+# Configure SSH and logging
 RUN sed -i 's/#Port 22/Port 22/g' /etc/ssh/sshd_config && \
-    mkdir /var/run/sshd
-
-# Enable persistent logging
-RUN sed -i 's/Storage=auto/Storage=persistent/' /etc/systemd/journald.conf
+    mkdir /var/run/sshd && \
+    sed -i 's/Storage=auto/Storage=persistent/' /etc/systemd/journald.conf
 
 # Set environment variables
 ENV USER=""
 ENV PASSWORD=""
 ENV VNCPASSWORD=""
+ENV ENABLE_X2GO="false"
+ENV ENABLE_VNC="false"
+ENV ENABLE_XRDP="false"
 
+# Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Expose necessary ports
 EXPOSE 22 5901 3389
 
+# Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

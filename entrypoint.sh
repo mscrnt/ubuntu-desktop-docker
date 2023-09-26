@@ -30,6 +30,11 @@ chmod 600 /home/${USER}/.vnc/passwd
 echo 'exec startxfce4' > /home/${USER}/.vnc/xstartup
 chmod 755 /home/${USER}/.vnc/xstartup
 
+# Set Chrome as the default browser
+mkdir -p /home/${USER}/.local/share/applications
+echo -e '[Default Applications]\nx-scheme-handler/http=google-chrome.desktop\nx-scheme-handler/https=google-chrome.desktop\napplication/xhtml+xml=google-chrome.desktop\napplication/xml=google-chrome.desktop\ntext/html=google-chrome.desktop' > /home/${USER}/.local/share/applications/mimeapps.list
+chown ${USER}:${USER} /home/${USER}/.local/share/applications/mimeapps.list
+
 # Set proper ownership for user's home directory
 echo "Setting ownership for ${USER} home directory"
 chown -R ${USER}:${USER} /home/${USER}
@@ -39,7 +44,6 @@ echo "Creating .Xauthority file for ${USER}"
 su - ${USER} -c "touch /home/${USER}/.Xauthority"
 
 # Set default applications for the user
-# Update XFCE panel launchers
 echo "Updating XFCE panel launchers"
 su - ${USER} -c "mkdir -p /home/${USER}/.config/xfce4/panel"
 su - ${USER} -c "echo '[Encoding=UTF-8]' > /home/${USER}/.config/xfce4/panel/launcher-1.rc"
@@ -47,28 +51,30 @@ su - ${USER} -c "echo 'Name=Terminal' >> /home/${USER}/.config/xfce4/panel/launc
 su - ${USER} -c "echo 'Icon=utilities-terminal' >> /home/${USER}/.config/xfce4/panel/launcher-1.rc"
 su - ${USER} -c "echo 'Exec=xfce4-terminal' >> /home/${USER}/.config/xfce4/panel/launcher-1.rc"
 
-su - ${USER} -c "echo '[Encoding=UTF-8]' > /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-su - ${USER} -c "echo 'Name=Web Browser' >> /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-su - ${USER} -c "echo 'Icon=web-browser' >> /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-su - ${USER} -c "echo 'Exec=firefox' >> /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-
-# Start SSH, VNC, and xrdp
+# Start services using systemctl
 echo "Starting SSH server"
-service ssh start
+systemctl start sshd.service
 
-echo "Starting VNC server"
-su - ${USER} -c "dbus-launch vncserver :1 -geometry 1920x1080 -localhost no"
-
-# Remove stale xrdp-sesman pid file
-if [ -f /var/run/xrdp/xrdp-sesman.pid ]; then
-    echo "Removing stale xrdp-sesman pid file"
-    rm /var/run/xrdp/xrdp-sesman.pid
+# Start x2go if enabled
+if [ "$ENABLE_X2GO" = "true" ]; then
+    echo "Starting x2go server"
+    systemctl start x2goserver.service
 fi
 
-echo "Starting xrdp server"
-service xrdp start
+# Start VNC server if enabled
+if [ "$ENABLE_VNC" = "true" ]; then
+    echo "Starting VNC server"
+    systemctl start vncserver@:1.service
+fi
+
+# Start xrdp server
+if [ "$ENABLE_XRDP" = "true" ]; then
+    echo "Starting xrdp server"
+    systemctl start xrdp.service
+fi
+
 
 echo "======== Container started ========"
 
 # Keep the container running in the foreground
-tail -f /dev/null
+exec /sbin/init

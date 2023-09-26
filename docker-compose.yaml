@@ -1,26 +1,16 @@
 version: "3.8"
 services:
   ubuntu-desktop:
-    container_name: ubuntu-desktop-container
-    image: mscrnt/ubuntu-desktop:latest
+    container_name: ubuntu-desktop-headless
+    image: mscrnt/ubuntu-desktop:headless
     environment:
-      - TZ=
-      - HOST_OS=
-      - HOST_HOSTNAME=
-      - HOST_CONTAINERNAME=ubuntu-desktop-container
-      - NVIDIA_VISIBLE_DEVICES=
-      - NVIDIA_DRIVER_CAPABILITIES=
       - USER=
       - PASSWORD=
       - VNCPASSWORD=
+      - ENABLE_X2GO=
+      - ENABLE_VNC=
+      - ENABLE_XRDP=
     ports:
       - "22:22"
       - "5901:5901"
       - "3389:3389"
-    volumes:
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
