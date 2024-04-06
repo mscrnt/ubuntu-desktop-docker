@@ -1,16 +1,21 @@
-version: "3.8"
+version: '3.8'
 services:
   ubuntu-desktop:
-    container_name: ubuntu-desktop-headless
     image: mscrnt/ubuntu-desktop:headless
-    environment:
-      - USER=
-      - PASSWORD=
-      - VNCPASSWORD=
-      - ENABLE_X2GO=
-      - ENABLE_VNC=
-      - ENABLE_XRDP=
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
     ports:
-      - "22:22"
       - "5901:5901"
       - "3389:3389"
+      - "22:22"
+    environment:
+      USER: <USERNAME>
+      PASSWORD: <PASSWORD>
+      VNCPASSWORD: <VNCPASSWORD>
+      ENABLE_X2GO: "false"
+      ENABLE_VNC: "true"
+      ENABLE_XRDP: "true"
