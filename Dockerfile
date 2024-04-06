@@ -1,17 +1,28 @@
-# Use Ubuntu 22.04 as the base image
 FROM ubuntu:22.04
 ARG DEBIAN_FRONTEND=noninteractive
 
-# Install systemd and set it as the init system
-ENV container docker
+ENV container=docker
 STOPSIGNAL SIGRTMIN+3
-CMD ["/sbin/init"]
 
-# Update package index and install required packages
+# Install systemd and essentials
 RUN apt-get update && \
-    apt-get install -y \
-        systemd systemd-sysv ca-certificates wget gnupg software-properties-common && \
-    rm -rf /var/lib/apt/lists/*  # Cleanup to reduce image size
+    apt-get install -y systemd systemd-sysv ca-certificates wget gnupg software-properties-common && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done) && \
+    rm -f /lib/systemd/system/multi-user.target.wants/* && \
+    rm -f /etc/systemd/system/*.wants/* && \
+    rm -f /lib/systemd/system/local-fs.target.wants/* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev* && \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl* && \
+    rm -f /lib/systemd/system/basic.target.wants/* && \
+    rm -f /lib/systemd/system/anaconda.target.wants/* && \
+    find /etc/systemd/system /lib/systemd/system -path '*.wants/*' -exec rm \{} \; && \
+    echo 'tmpfs /run tmpfs mode=755,nosuid,nodev 0 0' > /etc/fstab && \
+    echo 'tmpfs /tmp tmpfs mode=1777,nosuid,nodev 0 0' >> /etc/fstab
+
+# Generate machine-id
+RUN systemd-machine-id-setup
 
 # Add required repositories and keys
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys BC7345F522079769F5BBE987EFC71127F425E228 A7D8D681B1C07FE41499323D7CDE3A860A53F9FD && \
@@ -38,12 +49,12 @@ RUN sed -i 's/#Port 22/Port 22/g' /etc/ssh/sshd_config && \
     sed -i 's/Storage=auto/Storage=persistent/' /etc/systemd/journald.conf
 
 # Set environment variables
-ENV USER=""
-ENV PASSWORD=""
-ENV VNCPASSWORD=""
-ENV ENABLE_X2GO="false"
-ENV ENABLE_VNC="false"
-ENV ENABLE_XRDP="false"
+ENV USER="" \
+    PASSWORD="" \
+    VNCPASSWORD="" \
+    ENABLE_X2GO="false" \
+    ENABLE_VNC="false" \
+    ENABLE_XRDP="false"
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /entrypoint.sh

@@ -6,6 +6,11 @@ exec &> >(tee -a "${LOGFILE}")
 
 echo "======== Starting container ========"
 
+# Prepare /run and /run/lock without needing --tmpfs flags
+mount -t tmpfs tmpfs /run -o mode=755
+mkdir -p /run/lock
+mount -t tmpfs tmpfs /run/lock -o mode=1777
+
 # Check if user exists and create if not
 if ! id -u "${USER}" > /dev/null 2>&1; then
     echo "Creating user ${USER}"
