@@ -1,8 +1,12 @@
+Understood! Here's the updated README file with instructions for both building from the Dockerfile and pulling the pre-built image `mscrnt/ubuntu-desktop:gpu` from Docker Hub. This version is ready to be included in your GitHub repository:
+
+```markdown
 # Developer Environment Docker
 
-This Docker container provides a ready-to-use development environment based on Ubuntu 22.04 with the following tools pre-installed:
+This Docker container offers a comprehensive development environment based on Ubuntu 22.04, featuring a range of tools and applications tailored for developers. It leverages the NVIDIA Container Toolkit for GPU support, enabling the use of GPU-accelerated applications without manual NVIDIA driver installations inside the container.
 
-- NVIDIA Driver 530
+## Included Tools
+
 - OBS Studio
 - Firefox
 - Visual Studio Code
@@ -15,64 +19,81 @@ This Docker container provides a ready-to-use development environment based on U
 - Curl
 - FFMpeg
 - Htop
-- XFCE desktop environment
+- XFCE Desktop Environment
 
 ## Prerequisites
 
-- Docker installed on your machine.
-- NVIDIA Container Toolkit installed on your machine.
-- cudnn-linux-x86_64-8.5.0.96_cuda11-archive.tar.xz placed next to Dockerfile.
+- Docker installed on your host machine.
+- NVIDIA Container Toolkit installed on your host machine (for GPU support).
 
-## Getting Started
+## Using the Pre-built Docker Image
+
+For a quick setup, you can use the pre-built Docker image from Docker Hub.
+
+### Running the Pre-built Container
 
 1. Pull the Docker image from Docker Hub:
 
 ```bash
-docker pull mscrnt/ubuntu-desktop:latest
+docker pull mscrnt/ubuntu-desktop:gpu
 ```
 
-2. Run the Docker container:
-
-Replace \<USERNAME>, \<PASSWORD>, and \<VNCPASSWORD> with the desired values.
+2. Run the Docker container with GPU support:
 
 ```bash
-docker run -it -p 5901:5901 -p 3389:3389 -p 22:22 -e USER=\<USERNAME> -e PASSWORD=\<PASSWORD> -e VNCPASSWORD=\<VNCPASSWORD> mscrnt/ubuntu-desktop:latest
+docker run --gpus all -it -p 5901:5901 -p 3389:3389 -p 22:22 -e USER=<USERNAME> -e PASSWORD=<PASSWORD> -e VNCPASSWORD=<VNCPASSWORD> mscrnt/ubuntu-desktop:gpu
 ```
 
-3. Access the container:
+Replace `<USERNAME>`, `<PASSWORD>`, and `<VNCPASSWORD>` with your desired credentials.
 
-- VNC: Use a VNC client to connect to \`localhost:5901\` with the VNC password you provided.
-- RDP: Use a remote desktop client to connect to \`localhost:3389\` with the username and password you provided.
-- SSH: Use an SSH client to connect to \`localhost:22\` with the username and password you provided.
+### Accessing the Container
 
-4. Use Docker Compose file:
+- **VNC**: Connect to `localhost:5901` using a VNC client. Enter the VNCPASSWORD when prompted.
+- **RDP**: Connect to `localhost:3389` using a Remote Desktop client. Login with the USERNAME and PASSWORD you set.
+- **SSH**: Connect to `localhost:22` using an SSH client. Use the USERNAME and PASSWORD for authentication.
 
-Create a `docker-compose.yaml` file with the following content:
+## Building the Docker Image from the Dockerfile
+
+If you prefer to build the Docker image yourself or need to make modifications, follow these steps:
+
+1. Clone or download this GitHub repository to your local machine.
+
+2. Navigate to the directory containing the Dockerfile.
+
+3. Build the Docker image using:
+
+```bash
+docker build -t your-image-name:tag .
+```
+
+Replace `your-image-name:tag` with your preferred image name and tag.
+
+4. After building the image, you can run it using the same steps provided in the "Running the Pre-built Container" section, substituting `mscrnt/ubuntu-desktop:gpu` with `your-image-name:tag`.
+
+## Docker Compose
+
+Alternatively, you can use Docker Compose for easier management. Here's a sample `docker-compose.yaml`:
 
 ```yaml
 version: "3.8"
 services:
   ubuntu-desktop:
     container_name: ubuntu-desktop-container
-    image: mscrnt/ubuntu-desktop:latest
+    image: mscrnt/ubuntu-desktop:gpu
     environment:
-      - USER=
-      - PASSWORD=
-      - VNCPASSWORD=
+      - USER=<USERNAME>
+      - PASSWORD=<PASSWORD>
+      - VNCPASSWORD=<VNCPASSWORD>
     ports:
       - "22:22"
       - "5901:5901"
       - "3389:3389"
-    volumes:
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
 ```
 
-Fill in the blanks in the docker-compose.yaml file:
-- USER: The username for the container user 
-- PASSWORD: The password for the container user .
-- VNCPASSWORD: The VNC password for the container user 
+Replace `<USERNAME>`, `<PASSWORD>`, and `<VNCPASSWORD>` with your specific values, then start the container with:
+
+```bash
+docker-compose up -d
+```
+
+Remember, if you built your own image, replace `mscrnt/ubuntu-desktop:gpu` with `your-image-name:tag` in the `docker-compose.yaml` file.

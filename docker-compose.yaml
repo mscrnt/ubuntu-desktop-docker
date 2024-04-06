@@ -2,7 +2,7 @@ version: "3.8"
 services:
   ubuntu-desktop:
     container_name: ubuntu-desktop-container
-    image: mscrnt/ubuntu-desktop:latest
+    image: mscrnt/ubuntu-desktop:gpu
     environment:
       - TZ=
       - HOST_OS=
@@ -17,7 +17,6 @@ services:
       - "22:22"
       - "5901:5901"
       - "3389:3389"
-    volumes:
     deploy:
       resources:
         reservations:
