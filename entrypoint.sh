@@ -1,26 +1,23 @@
 #!/bin/bash
 
+# Log file for entrypoint operations
 LOGFILE="/var/log/entrypoint.log"
-
 exec &> >(tee -a "${LOGFILE}")
 
 echo "======== Starting container ========"
 
-# Check if user exists and create if not
-if ! id -u "${USER}" > /dev/null 2>&1; then
-    echo "Creating user ${USER}"
-    useradd -m -s /bin/bash "${USER}"
+# Create a user
+if ! id -u "$USER" &>/dev/null; then
+    echo "Creating user $USER..."
+    useradd -m -s /bin/bash "$USER"
+    echo "$USER:$PASSWORD" | chpasswd
+    echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 else
-    echo "User ${USER} already exists"
+    echo "User $USER already exists."
 fi
 
-# Add user to sudo group
-echo "Adding ${USER} to sudo group"
-usermod -aG sudo "${USER}"
-
-# Set user password
-echo "Setting password for ${USER}"
-echo "${USER}:${PASSWORD}" | chpasswd
+# Setup VNC
+mkdir -p /home/"$USER"/.vnc
 
 # Set up VNC password and xstartup file
 echo "Setting up VNC for ${USER}"
@@ -34,41 +31,59 @@ chmod 755 /home/${USER}/.vnc/xstartup
 echo "Setting ownership for ${USER} home directory"
 chown -R ${USER}:${USER} /home/${USER}
 
+# Create VNC service file
+cat > /etc/systemd/system/vncserver@.service <<EOF
+[Unit]
+Description=Start TigerVNC server at startup
+After=syslog.target network.target
+
+[Service]
+Type=forking
+User=$USER
+PAMName=login
+PIDFile=/home/$USER/.vnc/%H:%i.pid
+ExecStartPre=-/usr/bin/vncserver -kill :%i > /dev/null 2>&1
+ExecStart=/usr/bin/vncserver -depth 24 -geometry 1280x800 :%i
+ExecStop=/usr/bin/vncserver -kill :%i
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 # Create .Xauthority file for the user
 echo "Creating .Xauthority file for ${USER}"
 su - ${USER} -c "touch /home/${USER}/.Xauthority"
 
-# Set default applications for the user
-# Update XFCE panel launchers
-echo "Updating XFCE panel launchers"
-su - ${USER} -c "mkdir -p /home/${USER}/.config/xfce4/panel"
-su - ${USER} -c "echo '[Encoding=UTF-8]' > /home/${USER}/.config/xfce4/panel/launcher-1.rc"
-su - ${USER} -c "echo 'Name=Terminal' >> /home/${USER}/.config/xfce4/panel/launcher-1.rc"
-su - ${USER} -c "echo 'Icon=utilities-terminal' >> /home/${USER}/.config/xfce4/panel/launcher-1.rc"
-su - ${USER} -c "echo 'Exec=xfce4-terminal' >> /home/${USER}/.config/xfce4/panel/launcher-1.rc"
-
-su - ${USER} -c "echo '[Encoding=UTF-8]' > /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-su - ${USER} -c "echo 'Name=Web Browser' >> /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-su - ${USER} -c "echo 'Icon=web-browser' >> /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-su - ${USER} -c "echo 'Exec=firefox' >> /home/${USER}/.config/xfce4/panel/launcher-2.rc"
-
-# Start SSH, VNC, and xrdp
-echo "Starting SSH server"
-service ssh start
-
 echo "Starting VNC server"
 su - ${USER} -c "dbus-launch vncserver :1 -geometry 1920x1080 -localhost no"
 
-# Remove stale xrdp-sesman pid file
-if [ -f /var/run/xrdp/xrdp-sesman.pid ]; then
-    echo "Removing stale xrdp-sesman pid file"
-    rm /var/run/xrdp/xrdp-sesman.pid
-fi
+# Enable VNC and SSH services without starting them immediately
+systemctl enable vncserver@:1.service
+systemctl enable ssh.service
 
-echo "Starting xrdp server"
-service xrdp start
 
-echo "======== Container started ========"
+# Add applications to XFCE panel. Sleep for 5 seconds to allow XFCE to start
+sleep 5
 
-# Keep the container running in the foreground
-tail -f /dev/null
+# Define the applications to add to the desktop
+APPLICATIONS=("google-chrome" "obs" "vlc")
+
+# Ensure the Desktop directory exists
+mkdir -p /home/"$USER"/Desktop
+
+for APP in "${APPLICATIONS[@]}"; do
+    # Check if the application's .desktop file exists
+    if [ -f "/usr/share/applications/${APP}.desktop" ]; then
+        # Create a symbolic link to the application's .desktop file on the user's Desktop
+        cp "/usr/share/applications/${APP}.desktop" "/home/$USER/Desktop/"
+        chmod +x "/home/$USER/Desktop/${APP}.desktop"
+    fi
+done
+
+# Update ownership of all items on the Desktop
+chown -R "$USER":"$USER" /home/"$USER"/Desktop
+
+echo "======== Container setup is complete ========"
+
+# Hand over to the init system
+exec /sbin/init

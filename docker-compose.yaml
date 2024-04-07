@@ -1,25 +1,24 @@
-version: "3.8"
+version: '3.8'
 services:
   ubuntu-desktop:
-    container_name: ubuntu-desktop-container
-    image: mscrnt/ubuntu-desktop:gpu
-    environment:
-      - TZ=
-      - HOST_OS=
-      - HOST_HOSTNAME=
-      - HOST_CONTAINERNAME=ubuntu-desktop-container
-      - NVIDIA_VISIBLE_DEVICES=
-      - NVIDIA_DRIVER_CAPABILITIES=
-      - USER=
-      - PASSWORD=
-      - VNCPASSWORD=
+    image: mscrnt/ubuntu-desktop:latest
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
     ports:
-      - "22:22"
       - "5901:5901"
       - "3389:3389"
+      - "22:22"
+    environment:
+      USER: <USERNAME>
+      PASSWORD: <PASSWORD>
+      VNCPASSWORD: <VNCPASSWORD>
     deploy:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              count: all
+          - driver: nvidia
+            capabilities: [gpu]
