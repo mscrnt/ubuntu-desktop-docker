@@ -99,3 +99,18 @@ Replace placeholders with your desired configurations and run:
 ```bash
 docker-compose up -d
 ```
+
+## Building the Image
+
+To build the image locally, clone the repository and navigate to the project directory:
+
+```bash
+git clone https://github.com/mscrnt/ubuntu-desktop-docker.git
+cd ubuntu-desktop-docker
+```
+
+Build the image using the provided `Dockerfile`:
+
+```bash
+docker build -t your-image-name .
+```
