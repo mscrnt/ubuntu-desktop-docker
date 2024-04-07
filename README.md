@@ -1,6 +1,4 @@
-Understood! Here's the updated README file with instructions for both building from the Dockerfile and pulling the pre-built image `mscrnt/ubuntu-desktop:gpu` from Docker Hub. This version is ready to be included in your GitHub repository:
 
-```markdown
 # Developer Environment Docker
 
 This Docker container offers a comprehensive development environment based on Ubuntu 22.04, featuring a range of tools and applications tailored for developers. It leverages the NVIDIA Container Toolkit for GPU support, enabling the use of GPU-accelerated applications without manual NVIDIA driver installations inside the container.
