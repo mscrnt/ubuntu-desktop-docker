@@ -2,7 +2,6 @@ name: release
 
 on:
   push:
-    branches: [main]
     tags: ['v*.*.*']
   workflow_dispatch:
 
@@ -24,6 +23,10 @@ jobs:
         variant: [full, slim]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read VERSION
+        id: version
+        run: echo "value=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -50,13 +53,14 @@ jobs:
             ${{ env.DOCKERHUB_IMAGE }}
           flavor: |
             suffix=${{ matrix.variant == 'slim' && '-slim' || '' }},onlatest=true
+            latest=${{ matrix.variant == 'full' }}
           tags: |
-            type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
-            type=raw,value=24.04,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=24.04,enable=${{ matrix.variant == 'full' }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.value }}
 
       - name: Build & push (multi-arch)
         id: build
