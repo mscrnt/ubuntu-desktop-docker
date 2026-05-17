@@ -1,0 +1,9 @@
+ignored:
+  # apt-get version pinning - we rely on Ubuntu LTS package set, not pins.
+  - DL3008
+  # apt-get update && install in same RUN is enforced; this rule fires on
+  # the conditional INCLUDE_* layers where we intentionally split.
+  - DL3015
+trustedRegistries:
+  - docker.io
+  - ghcr.io

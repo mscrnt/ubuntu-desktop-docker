@@ -1,116 +1,125 @@
-# Developer Environment Docker
+# ubuntu-desktop-docker
 
-This Docker container provides a fully-equipped development environment built on Ubuntu 22.04 LTS. It includes a comprehensive suite of development tools and services, orchestrated under systemd as PID 1. This configuration adheres to the principle of least privilege, enhancing security while ensuring full functionality for services and applications that rely on systemd.
+Ubuntu 24.04 XFCE desktop in a container, accessible over **VNC**, **xrdp**,
+and **SSH**. Runs `systemd` as PID 1 so services start, stop, and restart
+cleanly. Headless by default; opt in to NVIDIA GPU passthrough when you need
+it.
 
-## Features
+[![build](https://github.com/mscrnt/ubuntu-desktop-docker/actions/workflows/build.yml/badge.svg)](https://github.com/mscrnt/ubuntu-desktop-docker/actions/workflows/build.yml)
+[![release](https://github.com/mscrnt/ubuntu-desktop-docker/actions/workflows/release.yml/badge.svg)](https://github.com/mscrnt/ubuntu-desktop-docker/actions/workflows/release.yml)
 
-The container is pre-loaded with a wide array of tools and services, including:
+## Image variants
 
-- **OBS Studio, Google Chrome, Visual Studio Code**: Essential tools for development, screen recording, web testing, and source code editing.
-- **Python 3.10 (with `venv` and `dev` packages), OpenSSH Server, TigerVNC Server**: For programming, secure access, and remote desktop capabilities.
-- **VLC Media Player, Git, Curl, FFmpeg, Htop**: Utilities for media playback, version control, data transfer, media processing, and system monitoring.
-- **XFCE Desktop Environment**: A lightweight desktop environment for a better GUI experience.
-- **Snapd**: For snap package management, enhancing application installation and maintenance.
+| Tag | Size | Includes |
+|---|---|---|
+| `:latest` | full | XFCE + VNC + xrdp + SSH + dev tools + **OBS, VLC, Chrome/Chromium, VS Code** |
+| `:slim` | small | XFCE + VNC + xrdp + SSH + dev tools (no media / browser / IDE) |
 
-## Prerequisites
+Both are published for `linux/amd64` and `linux/arm64` to:
 
-Ensure Docker is installed on your machine. For installation instructions, visit [Docker's official website](https://docs.docker.com/get-docker/).
+- `ghcr.io/mscrnt/ubuntu-desktop`
+- `docker.io/mscrnt/ubuntu-desktop`
 
-For GPU support, the NVIDIA Container Toolkit must be installed. Follow the instructions at [NVIDIA Container Toolkit's documentation](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) to set it up.
+Images are signed with cosign (keyless OIDC) and ship with SBOM + provenance
+attestations.
 
-## Getting Started
+## Quick start
 
-### 1. Pull the Docker Image
-
-Pull the image from Docker Hub:
-
-```bash
-docker pull mscrnt/ubuntu-desktop:latest
+```sh
+docker run -d --name desktop \
+  --cgroupns=host \
+  --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
+  -p 2222:22 -p 3389:3389 -p 5901:5901 \
+  -e USERNAME=user \
+  -e PASSWORD=change-me \
+  -e VNCPASSWORD=change-me \
+  ghcr.io/mscrnt/ubuntu-desktop:latest
 ```
 
-### 2. Run the Docker Container
+Connect:
 
-To run the container with the necessary configurations:
+| Protocol | Host port | Notes |
+|---|---|---|
+| RDP | `3389` | Use any RDP client. Recommended for best UX. |
+| VNC | `5901` | Any VNC client; uses `VNCPASSWORD`. |
+| SSH | `2222` | Maps to container `:22`; username/password from env. |
 
-```bash
-docker run -d \
-  --tmpfs /tmp \
-  --tmpfs /run \
-  --tmpfs /run/lock \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-  -p 5901:5901 -p 3389:3389 -p 22:22 \
-  -e USER=<USERNAME> -e PASSWORD=<PASSWORD> -e VNCPASSWORD=<VNCPASSWORD> \
-  mscrnt/ubuntu-desktop:latest
+## docker compose
+
+```sh
+cp .env.example .env
+# edit .env, then:
+docker compose up -d
 ```
 
-For GPU support, add the `--gpus all` flag to your `docker run` command:
+With NVIDIA GPU passthrough (requires
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)):
 
-```bash
-docker run -d \
-  --gpus all \
-  --tmpfs /tmp \
-  --tmpfs /run \
-  --tmpfs /run/lock \
-  -v /sys/fs/cgroup:/sys/fs/cgroup:ro \
-  -p 5901:5901 -p 3389:3389 -p 22:22 \
-  -e USER=<USERNAME> -e PASSWORD=<PASSWORD> -e VNCPASSWORD=<VNCPASSWORD> \
-  mscrnt/ubuntu-desktop:latest
+```sh
+docker compose -f docker-compose.yaml -f docker-compose.gpu.yaml up -d
 ```
 
-### 3. Accessing Your Container
+## Configuration
 
-- **Via VNC**: Connect to `localhost:5901` with a VNC client.
-- **Via RDP**: Use any Remote Desktop client to connect to `localhost:3389`.
-- **Via SSH**: Connect using an SSH client to `localhost:22`.
+Set at `docker run`/compose time:
 
-### 4. Docker Compose
+| Variable | Default | Purpose |
+|---|---|---|
+| `USERNAME` | *(required)* | Login user; gets passwordless sudo. |
+| `PASSWORD` | *(required)* | Account password for SSH / RDP / `sudo`. |
+| `VNCPASSWORD` | *(required)* | VNC connection password. |
+| `VNC_GEOMETRY` | `1920x1080` | VNC screen size. |
+| `VNC_DEPTH` | `24` | VNC color depth. |
+| `DISABLE_VNC` | `0` | Set `1` to skip VNC server. |
+| `DISABLE_XRDP` | `0` | Set `1` to skip xrdp. |
+| `DISABLE_SSH` | `0` | Set `1` to skip sshd. |
 
-For convenience, Docker Compose can be used. Create a `docker-compose.yaml` file with:
+## Building locally
 
-```yaml
-version: '3.8'
-services:
-  ubuntu-desktop:
-    image: mscrnt/ubuntu-desktop:latest
-    tmpfs:
-      - /tmp
-      - /run
-      - /run/lock
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
-    ports:
-      - "5901:5901"
-      - "3389:3389"
-      - "22:22"
-    environment:
-      USER: <USERNAME>
-      PASSWORD: <PASSWORD>
-      VNCPASSWORD: <VNCPASSWORD>
-    deploy:
-      resources:
-        reservations:
-          devices:
-          - driver: nvidia
-            capabilities: [gpu]
+```sh
+docker buildx build --load -t ubuntu-desktop:dev .
+
+# slim variant
+docker buildx build --load \
+  --build-arg VARIANT=slim \
+  --build-arg INCLUDE_BROWSER=false \
+  --build-arg INCLUDE_MEDIA=false \
+  --build-arg INCLUDE_VSCODE=false \
+  -t ubuntu-desktop:dev-slim .
 ```
 
-Replace placeholders with your desired configurations and run:
+Smoke test:
 
-```bash
-docker-compose up -d
+```sh
+IMAGE=ubuntu-desktop:dev ./tests/smoke.sh
 ```
 
-## Building the Image
+## Why systemd inside the container?
 
-To build the image locally, clone the repository and navigate to the project directory:
+XFCE, polkit, dbus services, xrdp's `sesman`, and several others expect a
+working init system. The previous bash-`entrypoint.sh` approach started a
+handful of daemons by hand and then `tail -f /dev/null`'d — which broke
+`docker restart`, made VNC the only practical session backend, and meant
+`systemctl` reported nonsense.
 
-```bash
-git clone https://github.com/mscrnt/ubuntu-desktop-docker.git
-cd ubuntu-desktop-docker
-```
+This image runs `/sbin/init` directly. First-boot configuration (user
+creation, VNC password, sudoers drop-in) runs as the
+[`container-setup.service`](rootfs/etc/systemd/system/container-setup.service)
+oneshot, ordered before `ssh.service`, `xrdp.service`, and
+`vncserver@.service`. The service is idempotent, so `docker restart desktop`
+works.
 
-Build the image using the provided `Dockerfile`:
+**No `--privileged` required** on cgroup v2 hosts. The `--cgroupns=host` flag
+plus tmpfs mounts for `/run`, `/run/lock`, and `/tmp` is sufficient.
 
-```bash
-docker build -t your-image-name .
-```
+## Branch model
+
+- `main` — releases. Protected, PR-only.
+- `dev` — integration; PRs target here.
+- Legacy archived tags: `legacy/gpu`, `legacy/headless`.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE).

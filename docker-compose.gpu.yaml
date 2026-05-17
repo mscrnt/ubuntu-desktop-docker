@@ -1,0 +1,14 @@
+# Overlay: docker compose -f docker-compose.yaml -f docker-compose.gpu.yaml up -d
+# Requires NVIDIA Container Toolkit on the host.
+services:
+  ubuntu-desktop:
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
