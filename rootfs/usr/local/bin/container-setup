@@ -10,16 +10,11 @@ LOG_TAG="container-setup"
 log() { logger -t "${LOG_TAG}" -- "$*"; echo "[${LOG_TAG}] $*"; }
 die() { log "FATAL: $*"; exit 1; }
 
-require_var() {
-    local name=$1
-    if [[ -z "${!name:-}" ]]; then
-        die "Required environment variable ${name} is not set"
-    fi
-}
-
-require_var USERNAME
-require_var PASSWORD
-require_var VNCPASSWORD
+# Required env vars (the ${VAR:?} form makes shellcheck and humans both
+# aware these are inputs from the container runtime).
+: "${USERNAME:?USERNAME environment variable is required}"
+: "${PASSWORD:?PASSWORD environment variable is required}"
+: "${VNCPASSWORD:?VNCPASSWORD environment variable is required}"
 
 # Reject names that would conflict with shell expansion or system accounts.
 if [[ ! "${USERNAME}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then

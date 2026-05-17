@@ -5,8 +5,9 @@ set -euo pipefail
 IMAGE="${IMAGE:?IMAGE env var required}"
 NAME="ubuntu-desktop-smoke-$$"
 
+# shellcheck disable=SC2329  # invoked via trap
 cleanup() {
-    docker logs "${NAME}" >/tmp/${NAME}.log 2>&1 || true
+    docker logs "${NAME}" >"/tmp/${NAME}.log" 2>&1 || true
     docker rm -f "${NAME}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT

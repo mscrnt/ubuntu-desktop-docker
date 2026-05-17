@@ -21,6 +21,9 @@ ENV container=docker \
     LC_ALL=C.UTF-8
 STOPSIGNAL SIGRTMIN+3
 
+# Fail-fast pipes: required so `curl … | gpg --dearmor` propagates curl errors.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # ---------------------------------------------------------------------------
 # Base system: systemd as PID 1.
 # Strip units that don't make sense inside a container (udev, getty,
