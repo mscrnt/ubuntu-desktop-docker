@@ -44,7 +44,7 @@ jobs:
         run: ./tests/smoke.sh
 
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ubuntu-desktop:test-${{ matrix.variant }}
           severity: CRITICAL,HIGH
