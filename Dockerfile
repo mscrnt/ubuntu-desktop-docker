@@ -35,6 +35,7 @@ RUN apt-get update && \
         curl \
         dbus \
         gnupg \
+        iproute2 \
         locales \
         sudo \
         systemd \
@@ -67,6 +68,7 @@ RUN apt-get update && \
         nano \
         openssh-server \
         tigervnc-standalone-server \
+        tigervnc-tools \
         tigervnc-xorg-extension \
         tmux \
         vim-tiny \

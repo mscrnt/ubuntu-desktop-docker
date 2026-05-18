@@ -1,7 +1,8 @@
 [Unit]
 Description=TigerVNC server for user %i on display :1
 After=container-setup.service network.target
-Requires=container-setup.service
+# No Requires=container-setup — container-setup itself enables and starts
+# this unit, so a hard Requires would deadlock the boot.
 
 [Service]
 Type=forking

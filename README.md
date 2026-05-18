@@ -28,6 +28,7 @@ attestations.
 ```sh
 docker run -d --name desktop \
   --cgroupns=host \
+  -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
   --tmpfs /run --tmpfs /run/lock --tmpfs /tmp \
   -p 2222:22 -p 3389:3389 -p 5901:5901 \
   -e USERNAME=user \
@@ -35,6 +36,10 @@ docker run -d --name desktop \
   -e VNCPASSWORD=change-me \
   ghcr.io/mscrnt/ubuntu-desktop:latest
 ```
+
+> systemd needs a writable cgroup tree. On cgroup v2 hosts the bind mount
+> above (with `--cgroupns=host`) is sufficient — **no `--privileged` flag and
+> no extra capabilities** are required.
 
 Connect:
 
@@ -109,8 +114,21 @@ oneshot, ordered before `ssh.service`, `xrdp.service`, and
 `vncserver@.service`. The service is idempotent, so `docker restart desktop`
 works.
 
-**No `--privileged` required** on cgroup v2 hosts. The `--cgroupns=host` flag
-plus tmpfs mounts for `/run`, `/run/lock`, and `/tmp` is sufficient.
+### Non-privileged on cgroup v2
+
+The image does **not** require `--privileged` or extra capabilities. The
+required runtime bits are:
+
+- `--cgroupns=host`
+- `-v /sys/fs/cgroup:/sys/fs/cgroup:rw` (writable cgroup tree)
+- `--tmpfs /run --tmpfs /run/lock --tmpfs /tmp`
+
+Why writable? With cgroup v2's unified hierarchy, systemd inside the
+container needs to write to the cgroup it lives in to spawn child slices.
+On cgroup v1 you could mount `:ro` — that's no longer enough on modern
+hosts. The trade-off: a container with this mount can manipulate cgroups
+visible to it; pair it with reasonable Docker user namespace settings if
+that matters for your threat model.
 
 ## Branch model
 

@@ -10,6 +10,19 @@ LOG_TAG="container-setup"
 log() { logger -t "${LOG_TAG}" -- "$*"; echo "[${LOG_TAG}] $*"; }
 die() { log "FATAL: $*"; exit 1; }
 
+# systemd services don't inherit PID 1's environment, so explicitly import
+# the Docker `-e` variables from /proc/1/environ.
+if [[ -r /proc/1/environ ]]; then
+    while IFS='=' read -r -d '' name value; do
+        case "${name}" in
+            USERNAME|PASSWORD|VNCPASSWORD|VNC_GEOMETRY|VNC_DEPTH|DISABLE_VNC|DISABLE_XRDP|DISABLE_SSH)
+                export "${name}=${value}"
+                ;;
+            *) ;;
+        esac
+    done < /proc/1/environ
+fi
+
 # Required env vars (the ${VAR:?} form makes shellcheck and humans both
 # aware these are inputs from the container runtime).
 : "${USERNAME:?USERNAME environment variable is required}"
@@ -70,10 +83,14 @@ alwaysshared
 EOF
     chown "${USERNAME}:${USERNAME}" "${USER_HOME}/.vnc/config"
 
-    systemctl enable --now "vncserver@${USERNAME}.service"
+    # --no-block: enable, then queue a start that runs once container-setup
+    # itself transitions to active (vncserver has After=container-setup).
+    # Synchronously waiting here would deadlock since we ARE container-setup.
+    systemctl enable "vncserver@${USERNAME}.service"
+    systemctl --no-block start "vncserver@${USERNAME}.service"
 else
     log "VNC disabled via DISABLE_VNC=1"
-    systemctl disable --now "vncserver@${USERNAME}.service" 2>/dev/null || true
+    systemctl disable "vncserver@${USERNAME}.service" 2>/dev/null || true
 fi
 
 # --- xrdp -------------------------------------------------------------------
