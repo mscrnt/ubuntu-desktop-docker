@@ -16,7 +16,8 @@ HADOLINT_IMG   := hadolint/hadolint:latest
 YAMLLINT_IMG   := cytopia/yamllint:latest
 ACTIONLINT_IMG := rhysd/actionlint:latest
 
-SHELL_SCRIPTS := rootfs/usr/local/bin/container-setup \
+SHELL_SCRIPTS := rootfs/usr/local/sbin/container-init \
+                 rootfs/usr/local/bin/container-setup \
                  rootfs/usr/local/bin/healthcheck \
                  rootfs/etc/xrdp/startwm.sh \
                  tests/smoke.sh
@@ -26,6 +27,12 @@ DOCKER_RUN := docker run --rm -v "$(CURDIR)":/repo -w /repo
 # Build-arg matrix per variant.
 BUILD_ARGS_full := VARIANT=full INCLUDE_BROWSER=true  INCLUDE_MEDIA=true  INCLUDE_VSCODE=true  INCLUDE_DEVTOOLS=true
 BUILD_ARGS_slim := VARIANT=slim INCLUDE_BROWSER=false INCLUDE_MEDIA=false INCLUDE_VSCODE=false INCLUDE_DEVTOOLS=true
+
+# Opt-in components. Pass NOMACHINE=true to layer NoMachine onto either variant.
+ifeq ($(NOMACHINE),true)
+BUILD_ARGS_full += INCLUDE_NOMACHINE=true
+BUILD_ARGS_slim += INCLUDE_NOMACHINE=true
+endif
 
 # ---- Targets ---------------------------------------------------------------
 .DEFAULT_GOAL := help

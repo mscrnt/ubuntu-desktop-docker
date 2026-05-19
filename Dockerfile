@@ -7,6 +7,13 @@ ARG INCLUDE_BROWSER=true
 ARG INCLUDE_MEDIA=true
 ARG INCLUDE_VSCODE=true
 ARG INCLUDE_DEVTOOLS=true
+ARG INCLUDE_NOMACHINE=false
+ARG NOMACHINE_VERSION=9.5.7
+ARG NOMACHINE_BUILD=2
+# Space-separated extra Python interpreter versions to install via
+# deadsnakes PPA (in addition to the distro default python3). Set to ""
+# to skip. Honored only when INCLUDE_DEVTOOLS=true.
+ARG PYTHON_VERSIONS="3.10 3.11 3.13"
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.title="ubuntu-desktop" \
@@ -73,6 +80,8 @@ RUN apt-get update && \
         tmux \
         vim-tiny \
         x11-xserver-utils \
+        terminator \
+        tilix \
         xauth \
         xfce4 \
         xfce4-goodies \
@@ -88,7 +97,10 @@ RUN apt-get update && \
         -e 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' \
         /etc/ssh/sshd_config && \
     adduser xrdp ssl-cert && \
-    sed -i 's/^Storage=auto/Storage=persistent/' /etc/systemd/journald.conf
+    sed -i 's/^Storage=auto/Storage=persistent/' /etc/systemd/journald.conf && \
+    # Disable NLA so Windows mstsc connects without TLS pre-auth negotiation
+    # (xrdp's snakeoil cert isn't trusted, NLA handshake fails for most clients).
+    sed -i 's/^security_layer=.*/security_layer=rdp/' /etc/xrdp/xrdp.ini
 
 # ---------------------------------------------------------------------------
 # Optional: developer toolchain (Python, build-essential).
@@ -102,6 +114,21 @@ RUN if [ "${INCLUDE_DEVTOOLS}" = "true" ]; then \
             python3-dev \
             python3-venv \
             python3-pip && \
+        # Extra Python interpreters via deadsnakes PPA. Ubuntu's `python3`
+        # stays the default (3.12 on 24.04); these are co-installed as
+        # python3.10, python3.11, python3.13, etc.
+        if [ -n "${PYTHON_VERSIONS}" ]; then \
+            install -d -m 0755 /etc/apt/keyrings && \
+            curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xF23C5A6CF475977595C89F51BA6932366A755776" \
+                | gpg --dearmor -o /etc/apt/keyrings/deadsnakes.gpg && \
+            echo "deb [signed-by=/etc/apt/keyrings/deadsnakes.gpg] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu noble main" \
+                > /etc/apt/sources.list.d/deadsnakes.list && \
+            apt-get update && \
+            for v in ${PYTHON_VERSIONS}; do \
+                apt-get install -y --no-install-recommends \
+                    "python${v}" "python${v}-venv" "python${v}-dev"; \
+            done; \
+        fi && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*; \
     fi
@@ -125,19 +152,18 @@ RUN if [ "${INCLUDE_MEDIA}" = "true" ]; then \
 # publish Chrome for arm64).
 # ---------------------------------------------------------------------------
 RUN if [ "${INCLUDE_BROWSER}" = "true" ]; then \
-        if [ "${TARGETARCH}" = "amd64" ]; then \
-            install -d -m 0755 /etc/apt/keyrings && \
-            curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
-                | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg && \
-            echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
-                > /etc/apt/sources.list.d/google-chrome.list && \
-            apt-get update && \
-            apt-get install -y --no-install-recommends google-chrome-stable; \
-        else \
-            apt-get update && \
-            apt-get install -y --no-install-recommends chromium-browser || \
-            apt-get install -y --no-install-recommends chromium; \
-        fi && \
+        install -d -m 0755 /etc/apt/keyrings && \
+        # Mozilla Team PPA — provides a real .deb for firefox on Ubuntu 24.04
+        # (the stock `firefox` package is a snap wrapper that doesn't run in
+        # containers). Pin priority 1001 so it wins over the snap stub.
+        curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x0AB215679C571D1C8325275B9BDB3D89CE49EC21" \
+            | gpg --dearmor -o /etc/apt/keyrings/mozilla.gpg && \
+        echo "deb [signed-by=/etc/apt/keyrings/mozilla.gpg] https://ppa.launchpadcontent.net/mozillateam/ppa/ubuntu noble main" \
+            > /etc/apt/sources.list.d/mozillateam.list && \
+        printf 'Package: firefox*\nPin: release o=LP-PPA-mozillateam\nPin-Priority: 1001\n' \
+            > /etc/apt/preferences.d/mozilla-firefox && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends firefox && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*; \
     fi
@@ -158,6 +184,27 @@ RUN if [ "${INCLUDE_VSCODE}" = "true" ]; then \
     fi
 
 # ---------------------------------------------------------------------------
+# Optional: NoMachine NX server (port 4000). Opt-in via INCLUDE_NOMACHINE=true.
+# Personal use is permitted under NoMachine's free license; commercial users
+# must obtain an Enterprise license — see https://www.nomachine.com/licensing.
+# ---------------------------------------------------------------------------
+RUN if [ "${INCLUDE_NOMACHINE}" = "true" ]; then \
+        majmin="$(echo "${NOMACHINE_VERSION}" | cut -d. -f1-2)" && \
+        case "${TARGETARCH}" in \
+            amd64) nm_path=Linux; nm_arch=amd64 ;; \
+            arm64) nm_path=Arm;   nm_arch=arm64 ;; \
+            *) echo "NoMachine: unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
+        esac && \
+        url="https://download.nomachine.com/download/${majmin}/${nm_path}/nomachine_${NOMACHINE_VERSION}_${NOMACHINE_BUILD}_${nm_arch}.deb" && \
+        curl -fsSL -o /tmp/nomachine.deb "${url}" && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends /tmp/nomachine.deb && \
+        rm -f /tmp/nomachine.deb && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# ---------------------------------------------------------------------------
 # Default runtime configuration. Override at `docker run` time.
 # ---------------------------------------------------------------------------
 ENV USERNAME="" \
@@ -172,13 +219,14 @@ ENV USERNAME="" \
 # Image overlay: systemd units + helper scripts.
 COPY rootfs/ /
 
-RUN chmod +x /usr/local/bin/container-setup /usr/local/bin/healthcheck && \
+RUN chmod +x /usr/local/bin/container-setup /usr/local/bin/healthcheck \
+        /usr/local/sbin/container-init && \
     systemctl enable container-setup.service ssh.service xrdp.service && \
     systemctl set-default multi-user.target
 
-EXPOSE 22 3389 5901
+EXPOSE 22 3389 4000 5901
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
     CMD ["/usr/local/bin/healthcheck"]
 
-ENTRYPOINT ["/sbin/init"]
+ENTRYPOINT ["/usr/local/sbin/container-init"]

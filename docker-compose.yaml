@@ -26,8 +26,11 @@ services:
       DISABLE_SSH: ${DISABLE_SSH:-0}
     ports:
       - "${SSH_PORT:-2222}:22"
-      - "${RDP_PORT:-3389}:3389"
+      - "${RDP_PORT:-13389}:3389"
       - "${VNC_PORT:-5901}:5901"
+      # NoMachine NX (only useful if the image was built with
+      # INCLUDE_NOMACHINE=true; otherwise this port has nothing listening).
+      - "${NX_PORT:-4000}:4000"
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck"]
       interval: 30s

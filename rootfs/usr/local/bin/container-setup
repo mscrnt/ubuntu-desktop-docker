@@ -15,7 +15,7 @@ die() { log "FATAL: $*"; exit 1; }
 if [[ -r /proc/1/environ ]]; then
     while IFS='=' read -r -d '' name value; do
         case "${name}" in
-            USERNAME|PASSWORD|VNCPASSWORD|VNC_GEOMETRY|VNC_DEPTH|DISABLE_VNC|DISABLE_XRDP|DISABLE_SSH)
+            USERNAME|PASSWORD|VNCPASSWORD|VNC_GEOMETRY|VNC_DEPTH|DISABLE_VNC|DISABLE_XRDP|DISABLE_SSH|DISABLE_NOMACHINE)
                 export "${name}=${value}"
                 ;;
             *) ;;
@@ -105,9 +105,15 @@ if [[ "${DISABLE_SSH:-0}" == "1" ]]; then
     systemctl disable --now ssh.service 2>/dev/null || true
 fi
 
+# --- NoMachine (only meaningful if installed) -------------------------------
+if [[ "${DISABLE_NOMACHINE:-0}" == "1" ]] && [[ -x /usr/NX/bin/nxserver ]]; then
+    log "NoMachine disabled via DISABLE_NOMACHINE=1"
+    systemctl disable --now nxserver.service 2>/dev/null || true
+fi
+
 # --- Desktop shortcuts ------------------------------------------------------
 install -d -m 0755 -o "${USERNAME}" -g "${USERNAME}" "${USER_HOME}/Desktop"
-for app in google-chrome chromium chromium-browser code obs vlc; do
+for app in firefox code obs vlc; do
     src="/usr/share/applications/${app}.desktop"
     if [[ -f "${src}" ]]; then
         dst="${USER_HOME}/Desktop/${app}.desktop"

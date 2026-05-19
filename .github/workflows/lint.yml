@@ -26,8 +26,8 @@ jobs:
         env:
           SHELLCHECK_OPTS: -e SC1091
         with:
-          scandir: ./rootfs/usr/local/bin
-          additional_files: rootfs/etc/xrdp/startwm.sh tests/smoke.sh
+          scandir: ./rootfs
+          additional_files: tests/smoke.sh
 
   yamllint:
     runs-on: ubuntu-latest

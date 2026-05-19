@@ -17,6 +17,10 @@ check_port() {
 [[ "${DISABLE_SSH:-0}"  != "1" ]] && check_port 22   "sshd"
 [[ "${DISABLE_XRDP:-0}" != "1" ]] && check_port 3389 "xrdp"
 [[ "${DISABLE_VNC:-0}"  != "1" ]] && check_port 5901 "vnc"
+# NoMachine is opt-in at build time; only check if the binary exists.
+if [[ -x /usr/NX/bin/nxserver && "${DISABLE_NOMACHINE:-0}" != "1" ]]; then
+    check_port 4000 "nxserver"
+fi
 
 # Setup must have completed.
 if [[ ! -f /var/lib/container-setup/done ]]; then
