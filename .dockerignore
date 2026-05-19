@@ -1,0 +1,16 @@
+.git
+.github
+.gitignore
+.gitattributes
+.editorconfig
+.env
+.env.*
+!.env.example
+*.md
+docs/
+tests/
+docker-compose*.yaml
+.hadolint.yaml
+.shellcheckrc
+.yamllint.yaml
+LICENSE

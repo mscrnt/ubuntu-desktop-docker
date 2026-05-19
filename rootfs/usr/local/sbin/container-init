@@ -1,0 +1,43 @@
+#!/bin/bash
+# Container PID 1 wrapper. Starts a journal tailer that inherits this
+# process's stdout (== docker's log capture), THEN exec's systemd. systemd
+# closes its own stdio when it takes over as PID 1, but the orphaned
+# journalctl child keeps the docker log pipe alive and streams the journal
+# into it.
+#
+# Result: `docker logs <container>` shows the systemd journal in real time.
+
+set -e
+
+# Spawn the journal forwarder as a subshell child. Inherits this process's
+# stdout (which IS docker's log capture). systemd's later TTY/cgroup
+# management doesn't kill it, and disown removes it from this shell's job
+# list.
+(
+    # Wait for journald to be up. /run/log/journal/<machine-id> is created
+    # by systemd-journald; until then journalctl -f spins on nothing.
+    for _ in $(seq 1 60); do
+        [[ -e /run/log/journal ]] && break
+        sleep 0.5
+    done
+    exec /usr/bin/journalctl --follow --no-hostname --output=short-iso
+) </dev/null &
+disown
+
+# NoMachine doesn't log to journald — it writes to a private file. Tail
+# that into our stdout too, so `docker logs` shows NX activity. Only do
+# this if NoMachine is actually installed in this image.
+if [[ -d /usr/NX ]]; then
+    (
+        for _ in $(seq 1 60); do
+            [[ -f /usr/NX/var/log/server.log ]] && break
+            sleep 0.5
+        done
+        # Prefix lines so they're distinguishable from journal entries.
+        /usr/bin/tail -F /usr/NX/var/log/server.log 2>/dev/null \
+            | /usr/bin/awk '{ print "[nxserver] " $0 }'
+    ) </dev/null &
+    disown
+fi
+
+exec /sbin/init "$@"

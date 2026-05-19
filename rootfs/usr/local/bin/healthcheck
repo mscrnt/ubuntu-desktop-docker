@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Container healthcheck: verify enabled services are listening.
+set -euo pipefail
+
+ok=true
+
+check_port() {
+    local port=$1 name=$2
+    if ss -lnt "sport = :${port}" | grep -q LISTEN; then
+        echo "ok: ${name} listening on :${port}"
+    else
+        echo "FAIL: ${name} not listening on :${port}"
+        ok=false
+    fi
+}
+
+[[ "${DISABLE_SSH:-0}"  != "1" ]] && check_port 22   "sshd"
+[[ "${DISABLE_XRDP:-0}" != "1" ]] && check_port 3389 "xrdp"
+[[ "${DISABLE_VNC:-0}"  != "1" ]] && check_port 5901 "vnc"
+# NoMachine is opt-in at build time; only check if the binary exists.
+if [[ -x /usr/NX/bin/nxserver && "${DISABLE_NOMACHINE:-0}" != "1" ]]; then
+    check_port 4000 "nxserver"
+fi
+
+# Setup must have completed.
+if [[ ! -f /var/lib/container-setup/done ]]; then
+    echo "FAIL: container-setup has not completed"
+    ok=false
+fi
+
+${ok} || exit 1

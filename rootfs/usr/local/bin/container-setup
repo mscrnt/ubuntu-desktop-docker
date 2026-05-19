@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# First-boot setup. Runs as a systemd oneshot before display services.
+# Idempotent: safe to re-run on `docker restart`.
+set -euo pipefail
+
+STATE_DIR=/var/lib/container-setup
+STAMP="${STATE_DIR}/done"
+LOG_TAG="container-setup"
+
+log() { logger -t "${LOG_TAG}" -- "$*"; echo "[${LOG_TAG}] $*"; }
+die() { log "FATAL: $*"; exit 1; }
+
+# systemd services don't inherit PID 1's environment, so explicitly import
+# the Docker `-e` variables from /proc/1/environ.
+if [[ -r /proc/1/environ ]]; then
+    while IFS='=' read -r -d '' name value; do
+        case "${name}" in
+            USERNAME|PASSWORD|VNCPASSWORD|VNC_GEOMETRY|VNC_DEPTH|DISABLE_VNC|DISABLE_XRDP|DISABLE_SSH|DISABLE_NOMACHINE)
+                export "${name}=${value}"
+                ;;
+            *) ;;
+        esac
+    done < /proc/1/environ
+fi
+
+# Required env vars (the ${VAR:?} form makes shellcheck and humans both
+# aware these are inputs from the container runtime).
+: "${USERNAME:?USERNAME environment variable is required}"
+: "${PASSWORD:?PASSWORD environment variable is required}"
+: "${VNCPASSWORD:?VNCPASSWORD environment variable is required}"
+
+# Reject names that would conflict with shell expansion or system accounts.
+if [[ ! "${USERNAME}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    die "USERNAME '${USERNAME}' is not a valid POSIX login name"
+fi
+if [[ "${USERNAME}" == "root" ]]; then
+    die "USERNAME must not be root"
+fi
+
+install -d -m 0755 "${STATE_DIR}"
+
+# --- User account -----------------------------------------------------------
+if ! id -u "${USERNAME}" >/dev/null 2>&1; then
+    log "Creating user ${USERNAME}"
+    useradd --create-home --shell /bin/bash --groups sudo,ssl-cert "${USERNAME}"
+fi
+
+log "Updating password for ${USERNAME}"
+echo "${USERNAME}:${PASSWORD}" | chpasswd
+
+# Passwordless sudo via drop-in (idempotent, unlike appending to /etc/sudoers).
+SUDOERS_FILE="/etc/sudoers.d/90-${USERNAME}"
+echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > "${SUDOERS_FILE}"
+chmod 0440 "${SUDOERS_FILE}"
+visudo -cf "${SUDOERS_FILE}" >/dev/null
+
+USER_HOME="$(getent passwd "${USERNAME}" | cut -d: -f6)"
+
+# --- VNC --------------------------------------------------------------------
+if [[ "${DISABLE_VNC:-0}" != "1" ]]; then
+    log "Configuring VNC for ${USERNAME}"
+    install -d -m 0700 -o "${USERNAME}" -g "${USERNAME}" "${USER_HOME}/.vnc"
+
+    # tigervnc reads ~/.vnc/passwd; vncpasswd -f writes the obfuscated form.
+    echo "${VNCPASSWORD}" | vncpasswd -f > "${USER_HOME}/.vnc/passwd"
+    chmod 0600 "${USER_HOME}/.vnc/passwd"
+    chown "${USERNAME}:${USERNAME}" "${USER_HOME}/.vnc/passwd"
+
+    cat > "${USER_HOME}/.vnc/xstartup" <<'EOF'
+#!/bin/sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+exec dbus-launch --exit-with-session startxfce4
+EOF
+    chmod 0755 "${USER_HOME}/.vnc/xstartup"
+    chown "${USERNAME}:${USERNAME}" "${USER_HOME}/.vnc/xstartup"
+
+    cat > "${USER_HOME}/.vnc/config" <<EOF
+geometry=${VNC_GEOMETRY:-1920x1080}
+depth=${VNC_DEPTH:-24}
+localhost=no
+alwaysshared
+EOF
+    chown "${USERNAME}:${USERNAME}" "${USER_HOME}/.vnc/config"
+
+    # --no-block: enable, then queue a start that runs once container-setup
+    # itself transitions to active (vncserver has After=container-setup).
+    # Synchronously waiting here would deadlock since we ARE container-setup.
+    systemctl enable "vncserver@${USERNAME}.service"
+    systemctl --no-block start "vncserver@${USERNAME}.service"
+else
+    log "VNC disabled via DISABLE_VNC=1"
+    systemctl disable "vncserver@${USERNAME}.service" 2>/dev/null || true
+fi
+
+# --- xrdp -------------------------------------------------------------------
+if [[ "${DISABLE_XRDP:-0}" == "1" ]]; then
+    log "xrdp disabled via DISABLE_XRDP=1"
+    systemctl disable --now xrdp.service xrdp-sesman.service 2>/dev/null || true
+fi
+
+# --- ssh --------------------------------------------------------------------
+if [[ "${DISABLE_SSH:-0}" == "1" ]]; then
+    log "SSH disabled via DISABLE_SSH=1"
+    systemctl disable --now ssh.service 2>/dev/null || true
+fi
+
+# --- NoMachine (only meaningful if installed) -------------------------------
+if [[ "${DISABLE_NOMACHINE:-0}" == "1" ]] && [[ -x /usr/NX/bin/nxserver ]]; then
+    log "NoMachine disabled via DISABLE_NOMACHINE=1"
+    systemctl disable --now nxserver.service 2>/dev/null || true
+fi
+
+# --- Desktop shortcuts ------------------------------------------------------
+install -d -m 0755 -o "${USERNAME}" -g "${USERNAME}" "${USER_HOME}/Desktop"
+for app in firefox code obs vlc; do
+    src="/usr/share/applications/${app}.desktop"
+    if [[ -f "${src}" ]]; then
+        dst="${USER_HOME}/Desktop/${app}.desktop"
+        cp "${src}" "${dst}"
+        chmod 0755 "${dst}"
+        chown "${USERNAME}:${USERNAME}" "${dst}"
+    fi
+done
+
+touch "${STAMP}"
+log "Setup complete"

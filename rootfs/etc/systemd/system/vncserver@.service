@@ -1,0 +1,21 @@
+[Unit]
+Description=TigerVNC server for user %i on display :1
+After=container-setup.service network.target
+# No Requires=container-setup — container-setup itself enables and starts
+# this unit, so a hard Requires would deadlock the boot.
+
+[Service]
+Type=forking
+User=%i
+Group=%i
+PAMName=login
+WorkingDirectory=/home/%i
+PIDFile=/home/%i/.vnc/%H:1.pid
+ExecStartPre=-/usr/bin/vncserver -kill :1 > /dev/null 2>&1
+ExecStart=/usr/bin/vncserver :1
+ExecStop=/usr/bin/vncserver -kill :1
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

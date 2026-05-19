@@ -1,0 +1,41 @@
+name: Bug report
+description: Something's broken in the image or its scripts.
+labels: [bug]
+body:
+  - type: input
+    id: image_tag
+    attributes:
+      label: Image tag
+      placeholder: ghcr.io/mscrnt/ubuntu-desktop:latest
+    validations:
+      required: true
+  - type: input
+    id: arch
+    attributes:
+      label: Host architecture
+      placeholder: amd64 / arm64
+    validations:
+      required: true
+  - type: input
+    id: docker_version
+    attributes:
+      label: Docker / runtime version
+      placeholder: "docker version --format '{{.Server.Version}}'"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: docker run command, compose snippet, or steps.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Container logs
+      description: "`docker logs <container>` (redact secrets)."
+      render: text
+    validations:
+      required: true

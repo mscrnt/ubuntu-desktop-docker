@@ -1,0 +1,13 @@
+extends: default
+
+ignore: |
+  .github/workflows/
+
+rules:
+  line-length:
+    max: 140
+    level: warning
+  truthy:
+    check-keys: false
+  document-start: disable
+  comments-indentation: disable

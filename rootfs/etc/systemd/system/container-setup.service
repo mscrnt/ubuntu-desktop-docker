@@ -1,0 +1,16 @@
+[Unit]
+Description=Container first-boot setup (user, VNC, sudoers)
+DefaultDependencies=no
+After=systemd-tmpfiles-setup.service local-fs.target
+Before=ssh.service xrdp.service vncserver@.service multi-user.target
+ConditionVirtualization=container
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/container-setup
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
